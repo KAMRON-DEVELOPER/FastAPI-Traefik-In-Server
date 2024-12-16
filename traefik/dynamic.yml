@@ -1,0 +1,32 @@
+http:
+  routers:
+    fastapi_http_router:
+      rule: "Host(`api.kronk.uz`)"
+      entryPoints: http
+      service: fastapi_service
+
+    fastapi_https_router:
+      rule: "Host(`api.kronk.uz`)"
+      entryPoints: https
+      service: fastapi_service
+
+    minio__http_router:
+      rule: "Host(`minio.kronk.uz`)"
+      entryPoints: http
+      service: minio_service
+
+    minio__https_router:
+      rule: "Host(`minio.kronk.uz`)"
+      entryPoints: https
+      service: minio_service
+
+  services:
+    fastapi_service:
+      loadbalancer:
+        servers:
+          - url: http://fastapi_container:8000
+
+    minio_service:
+      loadbalancer:
+        servers:
+          - url: http://minio_container:9001

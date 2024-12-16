@@ -1,0 +1,103 @@
+services:
+  fastapi:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: fastapi:latest
+    container_name: fastapi_container
+    restart: no
+    command: [ "gunicorn", "app.main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--workers", "4", "--bind", "0.0.0.0:8000", "--reload" ]
+    env_file:
+      - ./.env
+    volumes:
+      - ./backend:/backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fastapi_http_router.rule=Host(`api.kronk.uz`)"
+      - "traefik.http.routers.fastapi_http_router.entrypoints=http"
+      - "traefik.http.services.fastapi_service.loadbalancer.server.port=8000"
+      - "traefik.http.routers.fastapi_http_router.middlewares=redirect-to-https"
+
+      - "traefik.http.routers.fastapi_https_router.rule=Host(`api.kronk.uz`)"
+      - "traefik.http.routers.fastapi_https_router.entrypoints=https"
+      - "traefik.http.services.fastapi_service.loadbalancer.server.port=8000"
+      - "traefik.http.routers.fastapi_https_router.tls=true"
+      - "traefik.http.routers.fastapi_https_router.tls.certresolver=letsencrypt"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+    networks:
+      - traefik-public
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio_container
+    restart: no
+    env_file:
+      - ./.env
+    volumes:
+      - ./volumes/minio_storage:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio_http_router.rule=Host(`minio.kronk.uz`)"
+      - "traefik.http.routers.minio_http_router.entrypoints=http"
+      - "traefik.http.services.minio_service.loadbalancer.server.port=9001"
+      - "traefik.http.routers.minio_http_router.middlewares=redirect-to-https"
+
+      - "traefik.http.routers.minio_https_router.rule=Host(`minio.kronk.uz`)"
+      - "traefik.http.routers.minio_https_router.entrypoints=https"
+      - "traefik.http.services.minio_service.loadbalancer.server.port=9001"
+      - "traefik.http.routers.minio_https_router.tls=true"
+      - "traefik.http.routers.minio_https_router.tls.certresolver=letsencrypt"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+    command: minio server /data
+
+  traefik:
+    build:
+      context: ./traefik
+      dockerfile: Dockerfile
+    image: my_traefik:latest
+    container_name: traefik_container
+    restart: no
+    env_file:
+      - ./.env
+    ports:
+      - "80:80"
+      - "8080:8080"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml
+      - ./traefik/letsencrypt/acme.json:/letsencrypt/acme.json
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik_http_router.rule=Host(`traefik.kronk.uz`)"
+      - "traefik.http.routers.traefik_http_router.entrypoints=http"
+      - "traefik.http.services.minio_service.loadbalancer.server.port=8080"
+      - "traefik.http.routers.traefik_http_router.middlewares=redirect-to-https"
+
+      - traefik.docker.network=traefik-public
+
+      - "traefik.http.routers.traefik_https_router.rule=Host(`traefik.kronk.uz`)"
+      - "traefik.http.routers.traefik_https_router.entrypoints=https"
+      - "traefik.http.services.traefik_service.loadbalancer.server.port=8080"
+      - "traefik.http.routers.traefik_https_router.tls=true"
+      - "traefik.http.routers.traefik_https_router.tls.certresolver=letsencrypt"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+
+      - "traefik.http.middlewares.admin-auth.basicAuth.user=${TRAEFIK_ADMIN_USER?Variable not set}:${TRAEFIK_HASHED_ADMIN_PASSWORD?Variable not set}"
+      - "traefik.http.routers.traefik_https_router.middlewares=admin-auth"
+    networks:
+      - traefik-public
+
+volumes:
+  minio_storage:
+    name: minio_storage_volume
+
+networks:
+  traefik-public:
+    external: true
+    name: traefik-public-network
