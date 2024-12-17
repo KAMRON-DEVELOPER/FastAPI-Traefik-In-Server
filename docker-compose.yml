@@ -9,6 +9,8 @@ services:
     command: [ "gunicorn", "app.main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--workers", "4", "--bind", "0.0.0.0:8000", "--reload" ]
     env_file:
       - ./.env
+    ports:
+      - "8000"
     volumes:
       - ./backend:/backend
     labels:
@@ -34,6 +36,8 @@ services:
     restart: no
     env_file:
       - ./.env
+    ports:
+      - "9001"
     volumes:
       - ./volumes/minio_storage:/data
     labels:
@@ -63,7 +67,6 @@ services:
       - ./.env
     ports:
       - "80:80"
-      - "8080:8080"
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -87,7 +90,7 @@ services:
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
 
-      - "traefik.http.middlewares.admin-auth.basicauth.users=kamronbek:$$apr1$$AlUSWzgW$$Ud9oUOrYrgTo7uv4c0Rv/."
+      - "traefik.http.middlewares.admin-auth.basicauth.users={TRAEFIK_USER}:{TRAEFIK_HASH_PASSWORD}"
       - "traefik.http.routers.traefik_https_router.middlewares=admin-auth"
     networks:
       - traefik-public
@@ -99,4 +102,3 @@ volumes:
 networks:
   traefik-public:
     external: true
-    name: traefik-public-network
