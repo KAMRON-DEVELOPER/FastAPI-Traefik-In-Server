@@ -10,8 +10,6 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /backend
 
 COPY ./app ./app
-COPY ./migrations ./migrations
-COPY ./app/google-services.json ./
 COPY ./pyproject.toml ./
 COPY ./.python-version ./
 COPY ./uv.lock ./
